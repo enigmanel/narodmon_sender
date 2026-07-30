@@ -1,0 +1,15 @@
+{
+  "domain": "narodmon_sender",
+  "name": "Народный мониторинг",
+  "version": "0.1.0",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "config_flow": true,
+  "platforms": ["sensor"],
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@enigmanel"],
+  "documentation": "https://github.com/enigmanel/narodmon_sender/wiki",
+  "issue_tracker": "https://github.com/enigmanel/narodmon_sender/issues"
+ 
+}

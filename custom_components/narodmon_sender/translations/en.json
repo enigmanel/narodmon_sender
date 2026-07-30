@@ -1,0 +1,69 @@
+{
+  "config": {
+    "title": "Narodny Monitoring",
+    "step": {
+      "user": {
+        "title": "Basic Settings",
+        "description": "Specify connection parameters for the Narodny Monitoring service.",
+        "data": {
+          "mac": "Device MAC address",
+          "name": "Device name (optional)",
+          "timeout": "Send interval (minutes)"
+        }
+      },
+      "select_sensors": {
+        "title": "Select Sensors",
+        "description": "Select sensors whose values will be sent to the Narodny Monitoring service.",
+        "data": {
+          "sensors": "Sensors"
+        }
+      },
+      "assign_ids": {
+        "title": "Assign Metric IDs",
+        "description": "For each selected sensor, specify the metric ID (e.g., T1, H1, P1).",
+        "data": {
+          "entity_id": "Metric ID"
+        }
+      }
+    },
+    "error": {
+      "no_sensors_selected": "Select at least one sensor.",
+      "no_ids_specified": "Specify an ID for at least one sensor."
+    },
+    "abort": {
+      "already_configured": "A device with this MAC address has already been configured."
+    }
+  },
+  "options": {
+    "title": "Narodny Monitoring Settings",
+    "step": {
+      "init": {
+        "title": "Basic Settings",
+        "description": "Edit the main device parameters.",
+        "data": {
+          "mac": "Device MAC address",
+          "name": "Device name",
+          "timeout": "Send interval (minutes)"
+        }
+      },
+      "select_sensors": {
+        "title": "Select Sensors",
+        "description": "Choose sensors to send.",
+        "data": {
+          "sensors": "Sensors"
+        }
+      },
+      "assign_ids": {
+        "title": "Assign Metric IDs",
+        "description": "Set metric ID for each selected sensor.",
+        "data": {
+          "entity_id": "Metric ID"
+        }
+      }
+    },
+    "error": {
+      "no_sensors_selected": "Select at least one sensor.",
+      "no_ids_specified": "Specify an ID for at least one sensor."
+    }
+  }
+}

@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'               # срабатывает при пуше любого тега, начинающегося с v (например v0.1.0)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build archive
+        run: |
+          # Создаём временную папку для сборки
+          mkdir -p build
+
+          # Копируем папку с интеграцией
+          cp -r custom_components build/
+
+          # Копируем служебные файлы (если есть)
+          cp hacs.json build/ || true
+          cp README.md build/ || true
+
+          # Переходим в папку build и создаём архив
+          cd build
+          zip -r ../narodmon_sender.zip .
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: narodmon_sender.zip
+          generate_release_notes: true   # автоматически создаст описание релиза из коммитов
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          

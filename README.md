@@ -20,9 +20,9 @@
 
 ### Способ 2: Ручная установка 
 
-1. Скачайте последний релиз с страницы релизов (файл narodmon_sender.zip).
-2. Распакуйте архив и скопируйте папку narodmon_sender в каталог custom_components вашей установки Home Assistant.
-3. Если папки custom_components нет — создайте её в корне конфигурации.
+1. Скачайте последний релиз с страницы [релизов](https://github.com/enigmanel/narodmon_sender/releases)
+2. Распакуйте архив и скопируйте **папку narodmon_sender** в каталог **custom_components** вашей установки Home Assistant.
+3. Если папки **custom_components** нет — создайте её в корне конфигурации.
 4. Перезапустите Home Assistant.
 
 ## Настройка

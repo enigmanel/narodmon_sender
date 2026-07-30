@@ -3,5 +3,5 @@
   "zip_release": true,
   "homeassistant": "2026.3.0",
   "hacs": "1.32.0",
-  "filename": "narodmon_sender.zip"
+  "filename": "narodmon_sender"
 }

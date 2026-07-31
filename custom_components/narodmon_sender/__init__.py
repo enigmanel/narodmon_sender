@@ -123,7 +123,7 @@ async def _periodic_send(hass: HomeAssistant, entry_id: str) -> None:
 
 
 async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
-    """Отправка данных для одной конфигурации."""
+    """Отправка данных для одной конфигурации."""																			   
     entry = hass.config_entries.async_get_entry(entry_id)
     if not entry:
         _LOGGER.error("Запись %s не найдена", entry_id)
@@ -140,9 +140,15 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
         await _store_send_result(hass, entry_id, error="MAC или сенсоры не заданы")
         return
 
-    _LOGGER.info("Отправка показаний для MAC %s", mac)
+    # Загружаем сохранённые штампы (ключ — sensor_id)
+    if entry_id not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][entry_id] = {}
+    sent_timestamps = hass.data[DOMAIN][entry_id].get("last_sent_timestamps", {})
+    updated_timestamps = sent_timestamps.copy()  # будем обновлять после успеха
 
+    _LOGGER.info("Отправка показаний для MAC %s", mac)
     sensor_lines = []
+
     for entity_id, sensor_id in sensor_map.items():
         state = hass.states.get(entity_id)
         if state is None:
@@ -159,14 +165,27 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
             _LOGGER.warning("Значение сенсора %s (%s) вне допустимого диапазона", entity_id, value)
             continue
 
-        sensor_lines.append(f"#{sensor_id}#{value:.2f}\n")
-        _LOGGER.debug("%s = %s", sensor_id, value)
+        current_timestamp = int(state.last_updated.timestamp())
+        last_sent = sent_timestamps.get(sensor_id)
+
+        # Если штамп времени не изменился — сенсор не обновлялся, пропускаем
+        if last_sent is not None and last_sent == current_timestamp:
+            _LOGGER.debug("Сенсор %s (id=%s) не обновлялся, пропускаем", entity_id, sensor_id)
+            continue
+
+        # Подготовка к отправке
+        sensor_lines.append(f"#{sensor_id}#{value:.2f}#{current_timestamp}\n")
+        _LOGGER.debug("%s = %s (штамп: %d)", sensor_id, value, current_timestamp)
+
+        # Обновляем штамп в копии
+        updated_timestamps[sensor_id] = current_timestamp
 
     if not sensor_lines:
         _LOGGER.error("Нет валидных показаний для отправки")
         await _store_send_result(hass, entry_id, error="Нет валидных показаний")
         return
 
+    # Формируем пакет
     header_parts = [f"#{mac}"]
     if data.get(CONF_NAME):
         header_parts.append(f"#{data[CONF_NAME]}")
@@ -179,6 +198,10 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
     try:
         response = await _send_via_tcp(packet)
         _LOGGER.info("Ответ сервера: %s", response)
+
+        # ✅ Сохраняем обновлённые штампы только после успешной отправки
+        hass.data[DOMAIN][entry_id]["last_sent_timestamps"] = updated_timestamps
+
         await _store_send_result(
             hass, entry_id,
             timestamp=datetime.now(timezone.utc),
@@ -214,14 +237,22 @@ async def _store_send_result(hass, entry_id, timestamp=None, packet=None, respon
         hass.data[DOMAIN][entry_id] = {}
 
     send_info = hass.data[DOMAIN][entry_id].get("last_send", {})
+
     if timestamp:
         send_info["timestamp"] = timestamp.isoformat()
     elif timestamp is None and not error:
         send_info["timestamp"] = datetime.now(timezone.utc).isoformat()
+
     if packet is not None:
         send_info["packet"] = packet
     if response is not None:
         send_info["response"] = response
     if error is not None:
         send_info["error"] = error
+
     hass.data[DOMAIN][entry_id]["last_send"] = send_info
+
+    # ✅ НОВОЕ: если в hass.data есть обновлённые штампы, сохраняем их отдельно
+    if "last_sent_timestamps" in hass.data[DOMAIN][entry_id]:
+        # Они уже будут сохранены, ничего дополнительно не делаем
+        pass

@@ -87,6 +87,7 @@ class NarodmonLastSendSensor(SensorEntity):
             "last_packet": None,
             "last_response": None,
             "last_error": None,
+            "last_sent_timestamps": {},  # {sensor_id: timestamp} — НОВОЕ
         }
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_icon = "mdi:clock"
@@ -104,9 +105,12 @@ class NarodmonLastSendSensor(SensorEntity):
         return self._attr_extra_state_attributes
 
     async def async_update(self):
+        """Обновляет состояние сенсора из hass.data."""
         entry_data = self.hass.data[DOMAIN].get(self.config_entry.entry_id, {})
         last_send_info = entry_data.get("last_send", {})
+
         if last_send_info:
+            # Обновляем временную метку
             timestamp = last_send_info.get("timestamp")
             if timestamp:
                 try:
@@ -119,10 +123,13 @@ class NarodmonLastSendSensor(SensorEntity):
             else:
                 self._attr_native_value = None
 
+            # Обновляем атрибуты пакета, ответа и ошибки
             self._attr_extra_state_attributes = {
                 "last_packet": last_send_info.get("packet"),
                 "last_response": last_send_info.get("response"),
                 "last_error": last_send_info.get("error"),
+                # НОВОЕ: загружаем актуальные штампы из hass.data
+                "last_sent_timestamps": entry_data.get("last_sent_timestamps", {}),
             }
         else:
             self._attr_native_value = None
@@ -130,4 +137,5 @@ class NarodmonLastSendSensor(SensorEntity):
                 "last_packet": None,
                 "last_response": None,
                 "last_error": None,
+                "last_sent_timestamps": {},  # НОВОЕ
             }

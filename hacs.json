@@ -1,5 +1,6 @@
 {
   "name": "Народный мониторинг",
   "homeassistant": "2026.3.0",
-  "hacs": "1.32.0"
+  "hacs": "1.32.0",
+  "zip_release": false
 }

@@ -1,7 +1,5 @@
 {
   "name": "Народный мониторинг",
-  "zip_release": false,
-  "content_in_root": false,
   "homeassistant": "2026.3.0",
   "hacs": "1.32.0"
 }

@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write          # даёт право на создание релизов и загрузку ассетов
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,7 +31,7 @@ jobs:
           zip -r ../narodmon_sender.zip .
 
       - name: Create Release and Upload Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: narodmon_sender.zip
           generate_release_notes: true   # автоматически создаст описание релиза из коммитов

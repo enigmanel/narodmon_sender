@@ -10,7 +10,7 @@ from homeassistant import config_entries
 
 from homeassistant.helpers import config_validation as cv
 
-CONFIG_SCHEMA = cv.config_entry_only_config_schema("narodmon_sender")
+
 
 from .const import (
     DOMAIN,
@@ -25,7 +25,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Настройка интеграции (совместимость с configuration.yaml)."""
     hass.data.setdefault(DOMAIN, {})
@@ -42,9 +42,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: config_entries.ConfigEnt
     # Регистрируем сервис (один раз)
     if not hass.services.has_service(DOMAIN, "send_data"):
         async def send_to_narodmon(call: ServiceCall) -> None:
-            for data in hass.data[DOMAIN].values():
-                entry_id = data["entry_id"]
-                await _send_single_config(hass, entry_id)
+            #for data in hass.data[DOMAIN].values():
+            #    entry_id = data["entry_id"]
+            #    await _send_single_config(hass, entry_id)
+            device_id = call.data.get("device_id")
+            if not device_id:
+                _LOGGER.error("Не указан device_id")
+                return
+            else:
+                _LOGGER.debug("найден device_id %s",device_id)    
+
+            # Ищем entry_id по device_id
+            entry_id = None
+            for entry_data in hass.data[DOMAIN].values():
+                if entry_data.get("device_id") == device_id:
+                    entry_id = entry_data["entry_id"]
+                    break
+            if not entry_id:
+                _LOGGER.error("Устройство %s не найдено", device_id)
+                return
+
+            await _send_single_config(hass, entry_id)    
 
         hass.services.async_register(DOMAIN, "send_data", send_to_narodmon)
 
@@ -74,7 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: config_entries.ConfigEnt
 
 async def async_unload_entry(hass: HomeAssistant, entry: config_entries.ConfigEntry) -> bool:
     """Выгрузка интеграции."""
-    data = hass.data[DOMAIN].get(entry.entry_id)
+    data = hass.data[DOMAIN].get(entry.entry_id) 
     if data:
         if "task" in data:
             data["task"].cancel()

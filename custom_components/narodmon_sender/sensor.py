@@ -27,7 +27,7 @@ async def async_setup_entry(
     device_name = config_entry.data.get(CONF_NAME, f"Народный мониторинг {mac}")
 
     device_registry = dr.async_get(hass)
-    device_registry.async_get_or_create(
+    device=device_registry.async_get_or_create(
         config_entry_id=entry_id,
         identifiers={(DOMAIN, entry_id)},
         name=device_name,
@@ -35,6 +35,9 @@ async def async_setup_entry(
         model="Sender",
         sw_version="0.1.0",
     )
+    # Сохраняем device_id для быстрого поиска
+    _LOGGER.debug("Сопоставлен device_id %s с mac %s и entry_id %s",device.id,mac,entry_id)   
+    hass.data[DOMAIN][entry_id]["device_id"] = device.id
 
     sensors = [
         NarodmonTaskStatusSensor(hass, config_entry),

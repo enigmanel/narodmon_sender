@@ -1,12 +1,7 @@
 send_data:
   name: Отправить показания
   description: Отправляет текущие показания сенсоров в сервис Народный мониторинг.
-<<<<<<< Updated upstream
-  target:
-    device:
-      integration: narodmon_sender
-  fields: {}
-=======
+
   fields:
     device_id:
       name: Device
@@ -15,4 +10,3 @@ send_data:
       selector:
         device:
           integration: narodmon_sender
->>>>>>> Stashed changes

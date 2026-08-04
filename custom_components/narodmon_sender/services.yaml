@@ -2,4 +2,3 @@ send_data:
   name: Отправить показания
   description: Отправляет текущие показания сенсоров в сервис Народный мониторинг.
   fields: {}
-  icon: mdi:upload-network

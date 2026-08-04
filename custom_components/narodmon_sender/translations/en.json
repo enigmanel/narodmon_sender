@@ -1,6 +1,7 @@
 {
+  "title": "Narodny Monitoring Settings",
   "config": {
-    "title": "Narodny Monitoring",
+    
     "step": {
       "user": {
         "title": "Basic Settings",
@@ -34,8 +35,9 @@
       "already_configured": "A device with this MAC address has already been configured."
     }
   },
+  
   "options": {
-    "title": "Narodny Monitoring Settings",
+    
     "step": {
       "init": {
         "title": "Basic Settings",

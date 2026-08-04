@@ -2,6 +2,6 @@ send_data:
   name: Отправить показания
   description: Отправляет текущие показания сенсоров в сервис Народный мониторинг.
   target:
-    entity:
-      domain: narodmon_sender
+    device:
+      integration: narodmon_sender
   fields: {}

@@ -8,6 +8,10 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
 from homeassistant import config_entries
 
+from homeassistant.helpers import config_validation as cv
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema("narodmon_sender")
+
 from .const import (
     DOMAIN,
     CONF_MAC,

@@ -273,11 +273,11 @@ class NarodmonOptionsFlow(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(
                 self._config_entry,
                 data=current_data,
-                options={CONF_SENSOR_MAP: new_map},  # обновляем опции
+                #options={CONF_SENSOR_MAP: new_map},  # обновляем опции
             )
 
             # Завершаем options flow
-            return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data={CONF_SENSOR_MAP: new_map})
 
         return self.async_show_form(
             step_id="assign_ids",

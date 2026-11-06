@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from contextlib import suppress
 from datetime import datetime, timezone
 
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -17,6 +18,7 @@ from .const import (
     CONF_MAC,
     CONF_NAME,
     CONF_SENSOR_MAP,
+    CONF_OPTIMISTIC_SENSORS,
     CONF_TIMEOUT,
     NARODMON_HOST,
     NARODMON_PORT,
@@ -24,6 +26,9 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+TCP_TIMEOUT = 20
+TCP_CLOSE_TIMEOUT = 5
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -92,13 +97,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: config_entries.ConfigEnt
 
 async def async_unload_entry(hass: HomeAssistant, entry: config_entries.ConfigEntry) -> bool:
     """Выгрузка интеграции."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
+    if not unload_ok:
+        return unload_ok
+
     data = hass.data[DOMAIN].get(entry.entry_id) 
     if data:
         if "task" in data:
             data["task"].cancel()
+            with suppress(asyncio.CancelledError):
+                await data["task"]
             _LOGGER.debug("Задача отправки для %s отменена", entry.entry_id)
         hass.data[DOMAIN].pop(entry.entry_id, None)
-    return True
+    return unload_ok
 
 
 async def _restart_send_task(hass: HomeAssistant, entry: config_entries.ConfigEntry) -> None:
@@ -156,6 +167,9 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
 
     mac = data.get(CONF_MAC)
     sensor_map = options.get(CONF_SENSOR_MAP) or data.get(CONF_SENSOR_MAP, {})
+    optimistic_sensors = set(options.get(
+        CONF_OPTIMISTIC_SENSORS, data.get(CONF_OPTIMISTIC_SENSORS, [])
+    ))
 
     if not mac or not sensor_map:
         _LOGGER.warning("Пропускаем отправку для %s: MAC или сенсоры не заданы", entry_id)
@@ -170,6 +184,7 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
 
     _LOGGER.info("Отправка показаний для MAC %s", mac)
     sensor_lines = []
+    send_timestamp = int(datetime.now(timezone.utc).timestamp())
 
     for entity_id, sensor_id in sensor_map.items():
         state = hass.states.get(entity_id)
@@ -187,20 +202,22 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
             _LOGGER.warning("Значение сенсора %s (%s) вне допустимого диапазона", entity_id, value)
             continue
 
-        current_timestamp = int(state.last_updated.timestamp())
+        reported_timestamp = state.last_reported.timestamp()
+        optimistic = entity_id in optimistic_sensors
         last_sent = sent_timestamps.get(sensor_id)
 
-        # Если штамп времени не изменился — сенсор не обновлялся, пропускаем
-        if last_sent is not None and last_sent == current_timestamp:
-            _LOGGER.debug("Сенсор %s (id=%s) не обновлялся, пропускаем", entity_id, sensor_id)
+        # В обычном режиме отправляем только новые отчёты, даже при прежнем значении.
+        if not optimistic and last_sent == reported_timestamp:
+            _LOGGER.debug("Сенсор %s (id=%s) не сообщал новых показаний, пропускаем", entity_id, sensor_id)
             continue
 
         # Подготовка к отправке
+        current_timestamp = send_timestamp if optimistic else int(reported_timestamp)
         sensor_lines.append(f"#{sensor_id}#{value:.2f}#{current_timestamp}\n")
         _LOGGER.debug("%s = %s (штамп: %d)", sensor_id, value, current_timestamp)
 
         # Обновляем штамп в копии
-        updated_timestamps[sensor_id] = current_timestamp
+        updated_timestamps[sensor_id] = reported_timestamp
 
     if not sensor_lines:
         _LOGGER.error("Нет валидных показаний для отправки")
@@ -231,7 +248,7 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
             response=response
         )
     except asyncio.TimeoutError:
-        error_msg = f"Тайм-аут при подключении к {NARODMON_HOST}:{NARODMON_PORT}"
+        error_msg = f"Тайм-аут при отправке данных на {NARODMON_HOST}:{NARODMON_PORT}"
         _LOGGER.error(error_msg)
         await _store_send_result(hass, entry_id, error=error_msg)
     except Exception as e:
@@ -242,13 +259,19 @@ async def _send_single_config(hass: HomeAssistant, entry_id: str) -> None:
 
 async def _send_via_tcp(packet: str) -> str:
     """Отправка данных через TCP-сокет."""
-    reader, writer = await asyncio.open_connection(NARODMON_HOST, NARODMON_PORT)
-    writer.write(packet.encode("utf-8"))
-    await writer.drain()
-
-    response = await reader.read(1024)
-    writer.close()
-    await writer.wait_closed()
+    writer = None
+    try:
+        async with asyncio.timeout(TCP_TIMEOUT):
+            reader, writer = await asyncio.open_connection(NARODMON_HOST, NARODMON_PORT)
+            writer.write(packet.encode("utf-8"))
+            await writer.drain()
+            response = await reader.read(1024)
+    finally:
+        if writer is not None:
+            writer.close()
+            with suppress(TimeoutError, OSError):
+                async with asyncio.timeout(TCP_CLOSE_TIMEOUT):
+                    await writer.wait_closed()
 
     return response.decode("utf-8").strip()
 

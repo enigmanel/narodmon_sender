@@ -12,10 +12,28 @@ from .const import (
     CONF_MAC,
     CONF_NAME,
     CONF_SENSOR_MAP,
+    CONF_OPTIMISTIC_SENSORS,
     CONF_TIMEOUT,
     DEFAULT_NAME,
     DEFAULT_TIMEOUT,
 )
+
+
+def _optimistic_schema(hass, sensor_map, optimistic_sensors) -> vol.Schema:
+    """Независимый выбор режима для каждого отправляемого сенсора."""
+    options = []
+    for entity_id in sensor_map:
+        state = hass.states.get(entity_id)
+        label = f"{state.name} ({entity_id})" if state is not None else entity_id
+        options.append({"value": entity_id, "label": label})
+    selected = [entity_id for entity_id in optimistic_sensors if entity_id in sensor_map]
+    return vol.Schema({
+        vol.Required(CONF_OPTIMISTIC_SENSORS, default=selected): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=options, multiple=True, mode=selector.SelectSelectorMode.LIST
+            )
+        )
+    })
 
 # Шаг 1: Ввод основных данных
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -107,10 +125,7 @@ class NarodmonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
             self._config[CONF_SENSOR_MAP] = sensor_map
-            return self.async_create_entry(
-                title=f"Народный мониторинг ({self._config[CONF_MAC]})",
-                data=self._config,
-            )
+            return await self.async_step_optimistic()
 
         return self.async_show_form(
             step_id="assign_ids",
@@ -119,6 +134,20 @@ class NarodmonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "sensor_count": str(len(self._selected_entities)),
                 "hint": "Введите ID метрики (например T1, H1, P1) для каждого выбранного сенсора."
             }
+        )
+
+    async def async_step_optimistic(self, user_input=None):
+        """Выбор сенсоров, отправляемых без проверки времени отчёта."""
+        if user_input is not None:
+            self._config[CONF_OPTIMISTIC_SENSORS] = user_input.get(CONF_OPTIMISTIC_SENSORS, [])
+            return self.async_create_entry(
+                title=f"Народный мониторинг ({self._config[CONF_MAC]})",
+                data=self._config,
+            )
+        return self.async_show_form(
+            step_id="optimistic",
+            data_schema=_optimistic_schema(self.hass, self._config[CONF_SENSOR_MAP], []),
+            last_step=True,
         )
 
     def _build_id_schema(self) -> vol.Schema:
@@ -170,13 +199,16 @@ class NarodmonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class NarodmonOptionsFlow(config_entries.OptionsFlow):
-    """Редактирование опций (трёхшаговый подход: основные параметры → выбор сенсоров → ID метрик)."""
+    """Редактирование параметров, сенсоров, ID метрик и режима optimistic."""
 
     def __init__(self, config_entry):
         self._config_entry = config_entry
         self._sensor_map = config_entry.options.get(CONF_SENSOR_MAP) or config_entry.data.get(CONF_SENSOR_MAP, {})
         self._basic_config = {}   # временное хранение mac, name, timeout
         self._selected_entities = list(self._sensor_map.keys())
+        self._optimistic_sensors = config_entry.options.get(
+            CONF_OPTIMISTIC_SENSORS, config_entry.data.get(CONF_OPTIMISTIC_SENSORS, [])
+        )
 
     # ----- Шаг 1: основные настройки (MAC, имя, интервал) -----
     async def async_step_init(self, user_input=None):
@@ -262,7 +294,21 @@ class NarodmonOptionsFlow(config_entries.OptionsFlow):
                     errors={"base": "no_ids_specified"},
                 )
 
-            # Обновляем основные данные (mac, name, timeout)
+            self._sensor_map = new_map
+            return await self.async_step_optimistic()
+
+        return self.async_show_form(
+            step_id="assign_ids",
+            data_schema=self._build_id_schema(),
+            description_placeholders={
+                "hint": "Измените ID метрики для каждого сенсора."
+            }
+        )
+
+    async def async_step_optimistic(self, user_input=None):
+        """Включение или отключение optimistic для отдельных сенсоров."""
+        if user_input is not None:
+            # Сохраняем основные параметры только при завершении настройки.
             current_data = dict(self._config_entry.data)
             current_data.update({
                 CONF_MAC: self._basic_config[CONF_MAC],
@@ -273,18 +319,20 @@ class NarodmonOptionsFlow(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(
                 self._config_entry,
                 data=current_data,
-                #options={CONF_SENSOR_MAP: new_map},  # обновляем опции
             )
 
             # Завершаем options flow
-            return self.async_create_entry(title="", data={CONF_SENSOR_MAP: new_map})
+            options = dict(self._config_entry.options)
+            options.update({
+                CONF_SENSOR_MAP: self._sensor_map,
+                CONF_OPTIMISTIC_SENSORS: user_input.get(CONF_OPTIMISTIC_SENSORS, []),
+            })
+            return self.async_create_entry(title="", data=options)
 
         return self.async_show_form(
-            step_id="assign_ids",
-            data_schema=self._build_id_schema(),
-            description_placeholders={
-                "hint": "Измените ID метрики для каждого сенсора."
-            }
+            step_id="optimistic",
+            data_schema=_optimistic_schema(self.hass, self._sensor_map, self._optimistic_sensors),
+            last_step=True,
         )
 
     def _build_id_schema(self) -> vol.Schema:

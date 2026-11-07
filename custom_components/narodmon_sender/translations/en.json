@@ -1,7 +1,6 @@
 {
   "title": "Narodny Monitoring",
   "config": {
-    
     "step": {
       "user": {
         "title": "Basic Settings",
@@ -25,6 +24,13 @@
         "data": {
           "entity_id": "Metric ID"
         }
+      },
+      "optimistic": {
+        "title": "Optimistic mode",
+        "description": "Select sensors whose current readings should be sent every time, even without a new device report. Numeric validation still applies. Selected sensors use the send time; other sensors use their last report time (last_reported). Deselect a sensor to disable optimistic mode.",
+        "data": {
+          "optimistic_sensors": "Sensors with optimistic mode enabled"
+        }
       }
     },
     "error": {
@@ -35,9 +41,7 @@
       "already_configured": "A device with this MAC address has already been configured."
     }
   },
-  
   "options": {
-    
     "step": {
       "init": {
         "title": "Basic Settings",
@@ -60,6 +64,13 @@
         "description": "Set metric ID for each selected sensor.",
         "data": {
           "entity_id": "Metric ID"
+        }
+      },
+      "optimistic": {
+        "title": "Optimistic mode",
+        "description": "Select sensors whose current readings should be sent every time, even without a new device report. Numeric validation still applies. Selected sensors use the send time; other sensors use their last report time (last_reported). Deselect a sensor to disable optimistic mode.",
+        "data": {
+          "optimistic_sensors": "Sensors with optimistic mode enabled"
         }
       }
     },

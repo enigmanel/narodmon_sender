@@ -10,6 +10,7 @@ CONF_LAT = "lat"
 CONF_LON = "lon"
 CONF_ALT = "alt"
 CONF_SENSOR_MAP = "sensor_map"
+CONF_OPTIMISTIC_SENSORS = "optimistic_sensors"
 CONF_TIMEOUT = "timeout"
 
 # Значения по умолчанию
